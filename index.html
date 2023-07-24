@@ -70,24 +70,84 @@
     const messages = document.getElementById('message');
     const form = document.getElementById('form');
     const input = document.getElementById('input');
+    let name = ''
+    let connected = false
+    let id = 0
+    let typingMessage = null // Keep track of the 'typing' message
 
     form.addEventListener('submit', (e) => {
         e.preventDefault();
+        if (name) socket.emit('not typing', name, id)
         if (input.value){
-            socket.emit('chat message', input.value)
+            socket.emit('chat message', input.value, name, id)
             input.value = ''
         }
     })
 
-    socket.on('chat message', (msg) => {
-        console.log('message: ' + msg)
-        const item = document.createElement('li')
-        item.textContent = msg
-        messages.appendChild(item)
-        window.scrollTo(0, document.body.scrollHeight) // scroll to bottom
-         
+    input.addEventListener('input', () => {
+        if (input.value){
+            if (name) socket.emit('typing', name, id)
+        } else {
+            if(name) socket.emit('not typing', name, id)
+        }
     })
 
+
+    socket.on('chat message', (msg, userName) => {
+            removeTypingMessage();
+            writeMessage(`${userName}: ${msg}`)
+    })
+
+    socket.on('user name', (userName, givenId) => {
+        removeTypingMessage();
+        writeMessage(`${userName} has joined the chat`)
+        if (!name && id == givenId) {
+            name = userName
+        }
+    })
+
+    socket.on('typing', (userName) => {
+        removeTypingMessage(); // Remove the old 'typing' message
+        // Add a new 'typing' message
+        name == userName ? writeTypingMessage(`You are typing...`) : writeTypingMessage(`${userName} is typing...`)
+    })
+
+    socket.on('not typing', (userName) => {
+        removeTypingMessage(); // Remove the old 'typing' message
+    })
+    
+
+    socket.on('user Connected', (currentId) => {
+        if (!connected){
+            id = currentId
+            connected = true
+            removeTypingMessage();
+            writeMessage(`welcome to the chat room, enter your name in the chat to let people know who you are!`)
+        }
+    })
+
+    const writeMessage = (message) => {
+        const item = document.createElement('li')
+        item.textContent = message
+        messages.appendChild(item)
+        window.scrollTo(0, document.body.scrollHeight)
+    }
+
+    // This function creates a new 'typing' message and adds it to the DOM
+    const writeTypingMessage = (message) => {
+        typingMessage = document.createElement('li')
+        typingMessage.textContent = message
+        messages.appendChild(typingMessage)
+        window.scrollTo(0, document.body.scrollHeight)
+    }
+
+    // This function removes the 'typing' message from the DOM
+    const removeTypingMessage = () => {
+        if (typingMessage) {
+            messages.removeChild(typingMessage)
+            typingMessage = null
+        }
+    }
 
 </script>
 </html>
